@@ -1,257 +1,295 @@
-const state = {
-  league: null,       // { id, name, country, logo }
-  season: new Date().getFullYear(),
-};
+```javascript
+// FootballHub frontend client code
+// IMPORTANT: This file must run in the browser, NOT as a Vercel/Node server entry point.
 
-// ---------- Tabs ----------
-document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
-  });
-});
+(() => {
+  "use strict";
 
-// ---------- League search ----------
-const searchInput = document.getElementById("league-search");
-const resultsBox = document.getElementById("league-results");
-let searchTimer = null;
+  // Wait until the browser has loaded the HTML.
+  document.addEventListener("DOMContentLoaded", () => {
+    const state = {
+      league: null,
+      season: new Date().getFullYear(),
+    };
 
-searchInput.addEventListener("input", () => {
-  clearTimeout(searchTimer);
-  const q = searchInput.value.trim();
-  if (q.length < 2) {
-    resultsBox.classList.remove("open");
-    return;
-  }
-  searchTimer = setTimeout(() => runLeagueSearch(q), 350);
-});
+    // ---------- Tabs ----------
+    const tabButtons = document.querySelectorAll(".tab-btn");
 
-document.addEventListener("click", (e) => {
-  if (!e.target.closest(".league-picker")) resultsBox.classList.remove("open");
-});
+    tabButtons.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document
+          .querySelectorAll(".tab-btn")
+          .forEach((b) => b.classList.remove("active"));
 
-async function runLeagueSearch(q) {
-  try {
-    const res = await fetch(`/api/leagues?search=${encodeURIComponent(q)}`);
-    const json = await res.json();
-    renderLeagueResults(json.response || []);
-  } catch (err) {
-    console.error(err);
-  }
-}
+        document
+          .querySelectorAll(".tab-panel")
+          .forEach((p) => p.classList.remove("active"));
 
-function renderLeagueResults(items) {
-  resultsBox.innerHTML = "";
-  if (!items.length) {
-    resultsBox.classList.remove("open");
-    return;
-  }
-  items.slice(0, 15).forEach((item) => {
-    const div = document.createElement("div");
-    div.className = "league-result-item";
-    const logo = item.league.logo || "";
-    div.innerHTML = `
-      <img src="${logo}" alt="" onerror="this.style.visibility='hidden'"/>
-      <span>${item.league.name}</span>
-      <small>${item.country?.name || ""}</small>
-    `;
-    div.addEventListener("click", () => selectLeague(item));
-    resultsBox.appendChild(div);
-  });
-  resultsBox.classList.add("open");
-}
+        btn.classList.add("active");
 
-function selectLeague(item) {
-  // Prefer the most recent season API-Football has for this league
-  const seasons = item.seasons || [];
-  const current = seasons.find((s) => s.current) || seasons[seasons.length - 1];
-  state.season = current ? current.year : state.season;
+        const panel = document.getElementById(`tab-${btn.dataset.tab}`);
 
-  state.league = {
-    id: item.league.id,
-    name: item.league.name,
-    country: item.country?.name || "",
-    logo: item.league.logo,
-  };
-
-  document.getElementById("current-league").classList.remove("hidden");
-  document.getElementById("league-name").textContent = state.league.name;
-  document.getElementById("league-country").textContent =
-    `${state.league.country} · ${state.season}`;
-
-  resultsBox.classList.remove("open");
-  searchInput.value = "";
-
-  loadStandings();
-  loadFixtures();
-}
-
-// ---------- Standings ----------
-async function loadStandings() {
-  const status = document.getElementById("standings-status");
-  const table = document.getElementById("standings-table");
-  status.textContent = "Loading table…";
-  status.classList.remove("hidden");
-  table.classList.add("hidden");
-
-  try {
-    const res = await fetch(
-      `/api/standings?league=${state.league.id}&season=${state.season}`
-    );
-    const json = await res.json();
-    const rows = json.response?.[0]?.league?.standings?.[0] || [];
-
-    if (!rows.length) {
-      status.textContent = "No standings available for this league/season.";
-      return;
-    }
-
-    const tbody = table.querySelector("tbody");
-    tbody.innerHTML = "";
-    rows.forEach((row) => {
-      const tr = document.createElement("tr");
-      tr.innerHTML = `
-        <td>${row.rank}</td>
-        <td class="club"><img class="crest" src="${row.team.logo}" onerror="this.style.visibility='hidden'"/> ${row.team.name}</td>
-        <td>${row.all.played}</td>
-        <td>${row.all.win}</td>
-        <td>${row.all.draw}</td>
-        <td>${row.all.lose}</td>
-        <td>${row.goalsDiff}</td>
-        <td><strong>${row.points}</strong></td>
-        <td>${row.form || "-"}</td>
-      `;
-      tbody.appendChild(tr);
+        if (panel) {
+          panel.classList.add("active");
+        }
+      });
     });
 
-    status.classList.add("hidden");
-    table.classList.remove("hidden");
-  } catch (err) {
-    status.textContent = "Couldn't load standings. Check the server's API-Football key.";
-    console.error(err);
-  }
-}
+    // ---------- League search ----------
+    const searchInput = document.getElementById("league-search");
+    const resultsBox = document.getElementById("league-results");
 
-// ---------- Fixtures + predictions ----------
-async function loadFixtures() {
-  const status = document.getElementById("fixtures-status");
-  const list = document.getElementById("fixtures-list");
-  status.textContent = "Loading fixtures…";
-  list.innerHTML = "";
+    let searchTimer = null;
 
-  try {
-    const res = await fetch(
-      `/api/fixtures?league=${state.league.id}&season=${state.season}&next=8`
-    );
-    const json = await res.json();
-    const fixtures = json.response || [];
+    if (searchInput && resultsBox) {
+      searchInput.addEventListener("input", () => {
+        clearTimeout(searchTimer);
 
-    if (!fixtures.length) {
-      status.textContent = "No upcoming fixtures found.";
-      return;
+        const q = searchInput.value.trim();
+
+        if (q.length < 2) {
+          resultsBox.classList.remove("open");
+          return;
+        }
+
+        searchTimer = setTimeout(() => {
+          runLeagueSearch(q);
+        }, 350);
+      });
+
+      document.addEventListener("click", (e) => {
+        const picker = e.target.closest(".league-picker");
+
+        if (!picker) {
+          resultsBox.classList.remove("open");
+        }
+      });
     }
-    status.classList.add("hidden");
 
-    fixtures.forEach((f) => {
-      const card = document.createElement("div");
-      card.className = "fixture-card";
-      const date = new Date(f.fixture.date);
-      card.innerHTML = `
-        <div class="fixture-teams">
-          <span>${f.teams.home.name}</span>
-          <span>vs</span>
-          <span>${f.teams.away.name}</span>
-        </div>
-        <div class="fixture-meta">
-          ${date.toLocaleDateString()} · ${date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-          · ${f.league.round}
-        </div>
-        <button class="fixture-predict-btn">Show prediction</button>
-        <div class="fixture-prediction"></div>
-      `;
-      const btn = card.querySelector(".fixture-predict-btn");
-      const predictionBox = card.querySelector(".fixture-prediction");
-      btn.addEventListener("click", () => loadPrediction(f.fixture.id, predictionBox, btn));
-      list.appendChild(card);
-    });
-  } catch (err) {
-    status.textContent = "Couldn't load fixtures.";
-    console.error(err);
-  }
-}
+    async function runLeagueSearch(q) {
+      try {
+        const res = await fetch(
+          `/api/leagues?search=${encodeURIComponent(q)}`
+        );
 
-async function loadPrediction(fixtureId, box, btn) {
-  if (box.classList.contains("open")) {
-    box.classList.remove("open");
-    return;
-  }
-  btn.textContent = "Loading…";
-  try {
-    const res = await fetch(`/api/predictions?fixture=${fixtureId}`);
-    const json = await res.json();
-    const pred = json.response?.[0];
+        if (!res.ok) {
+          throw new Error(`League search failed: ${res.status}`);
+        }
 
-    if (!pred) {
-      box.textContent = "No prediction available for this fixture yet.";
-    } else {
-      const winner = pred.predictions.winner?.name || "Too close to call";
-      const advice = pred.predictions.advice || "";
-      const pctHome = pred.predictions.percent?.home || "-";
-      const pctDraw = pred.predictions.percent?.draw || "-";
-      const pctAway = pred.predictions.percent?.away || "-";
-      box.innerHTML = `
-        <strong>Predicted result:</strong> ${winner}<br/>
-        Win% — Home ${pctHome} · Draw ${pctDraw} · Away ${pctAway}<br/>
-        <em>${advice}</em>
-        <div style="margin-top:6px; color:var(--muted); font-size:0.78rem;">
-          Source: API-Football's prediction model, not generated by this site.
-        </div>
-      `;
+        const json = await res.json();
+
+        renderLeagueResults(json.response || []);
+      } catch (err) {
+        console.error("League search error:", err);
+
+        if (resultsBox) {
+          resultsBox.classList.remove("open");
+        }
+      }
     }
-    box.classList.add("open");
-    btn.textContent = "Hide prediction";
-  } catch (err) {
-    box.textContent = "Couldn't load a prediction right now.";
-    box.classList.add("open");
-    btn.textContent = "Show prediction";
-    console.error(err);
-  }
-}
 
-// ---------- Highlights ----------
-async function loadHighlights() {
-  const status = document.getElementById("highlights-status");
-  const grid = document.getElementById("highlights-grid");
-  try {
-    const res = await fetch("/api/highlights");
-    const json = await res.json();
-    const items = json.response || [];
+    function renderLeagueResults(items) {
+      if (!resultsBox) return;
 
-    if (!items.length) {
-      status.textContent = "No highlights available right now.";
-      return;
+      resultsBox.innerHTML = "";
+
+      if (!items.length) {
+        resultsBox.classList.remove("open");
+        return;
+      }
+
+      items.slice(0, 15).forEach((item) => {
+        const div = document.createElement("div");
+
+        div.className = "league-result-item";
+
+        const league = item.league || {};
+        const country = item.country || {};
+
+        const logo = league.logo || "";
+        const name = league.name || "Unknown league";
+        const countryName = country.name || "";
+
+        div.innerHTML = `
+          <img
+            src="${escapeHtml(logo)}"
+            alt=""
+            onerror="this.style.visibility='hidden'"
+          />
+          <span>${escapeHtml(name)}</span>
+          <small>${escapeHtml(countryName)}</small>
+        `;
+
+        div.addEventListener("click", () => {
+          selectLeague(item);
+        });
+
+        resultsBox.appendChild(div);
+      });
+
+      resultsBox.classList.add("open");
     }
-    status.classList.add("hidden");
 
-    items.slice(0, 24).forEach((item) => {
-      const card = document.createElement("div");
-      card.className = "highlight-card";
-      const embed = item.embed || `<a href="${item.matchviewUrl}" target="_blank">Watch</a>`;
-      card.innerHTML = `
-        <div class="embed">${embed}</div>
-        <div class="meta">
-          <strong>${item.title || ""}</strong>
-          <span>${item.competition?.name || ""}</span>
-        </div>
-      `;
-      grid.appendChild(card);
-    });
-  } catch (err) {
-    status.textContent = "Couldn't load highlights right now.";
-    console.error(err);
-  }
-}
+    function selectLeague(item) {
+      const seasons = item.seasons || [];
 
-loadHighlights();
+      const current =
+        seasons.find((s) => s.current) ||
+        seasons[seasons.length - 1];
+
+      state.season = current
+        ? current.year
+        : state.season;
+
+      state.league = {
+        id: item.league?.id,
+        name: item.league?.name || "",
+        country: item.country?.name || "",
+        logo: item.league?.logo || "",
+      };
+
+      if (!state.league.id) {
+        console.error("Invalid league:", item);
+        return;
+      }
+
+      const currentLeague =
+        document.getElementById("current-league");
+
+      const leagueName =
+        document.getElementById("league-name");
+
+      const leagueCountry =
+        document.getElementById("league-country");
+
+      if (currentLeague) {
+        currentLeague.classList.remove("hidden");
+      }
+
+      if (leagueName) {
+        leagueName.textContent = state.league.name;
+      }
+
+      if (leagueCountry) {
+        leagueCountry.textContent =
+          `${state.league.country} · ${state.season}`;
+      }
+
+      if (resultsBox) {
+        resultsBox.classList.remove("open");
+      }
+
+      if (searchInput) {
+        searchInput.value = "";
+      }
+
+      loadStandings();
+      loadFixtures();
+    }
+
+    // ---------- Standings ----------
+    async function loadStandings() {
+      if (!state.league) return;
+
+      const status =
+        document.getElementById("standings-status");
+
+      const table =
+        document.getElementById("standings-table");
+
+      if (!status || !table) return;
+
+      status.textContent = "Loading table…";
+      status.classList.remove("hidden");
+      table.classList.add("hidden");
+
+      try {
+        const res = await fetch(
+          `/api/standings?league=${state.league.id}&season=${state.season}`
+        );
+
+        if (!res.ok) {
+          throw new Error(`Standings request failed: ${res.status}`);
+        }
+
+        const json = await res.json();
+
+        const rows =
+          json.response?.[0]?.league?.standings?.[0] || [];
+
+        if (!rows.length) {
+          status.textContent =
+            "No standings available for this league/season.";
+          return;
+        }
+
+        const tbody = table.querySelector("tbody");
+
+        if (!tbody) {
+          throw new Error("Standings table body not found.");
+        }
+
+        tbody.innerHTML = "";
+
+        rows.forEach((row) => {
+          const tr = document.createElement("tr");
+
+          const team = row.team || {};
+          const all = row.all || {};
+
+          tr.innerHTML = `
+            <td>${escapeHtml(row.rank)}</td>
+
+            <td class="club">
+              <img
+                class="crest"
+                src="${escapeHtml(team.logo || "")}"
+                alt=""
+                onerror="this.style.visibility='hidden'"
+              />
+              ${escapeHtml(team.name || "")}
+            </td>
+
+            <td>${escapeHtml(all.played)}</td>
+            <td>${escapeHtml(all.win)}</td>
+            <td>${escapeHtml(all.draw)}</td>
+            <td>${escapeHtml(all.lose)}</td>
+            <td>${escapeHtml(row.goalsDiff)}</td>
+
+            <td>
+              <strong>${escapeHtml(row.points)}</strong>
+            </td>
+
+            <td>${escapeHtml(row.form || "-")}</td>
+          `;
+
+          tbody.appendChild(tr);
+        });
+
+        status.classList.add("hidden");
+        table.classList.remove("hidden");
+      } catch (err) {
+        console.error("Standings error:", err);
+
+        status.textContent =
+          "Couldn't load standings. Check the server's API-Football key.";
+      }
+    }
+
+    // ---------- Fixtures + predictions ----------
+    async function loadFixtures() {
+      if (!state.league) return;
+
+      const status =
+        document.getElementById("fixtures-status");
+
+      const list =
+        document.getElementById("fixtures-list");
+
+      if (!status || !list) return;
+
+      status.textContent = "Loading fixtures…";
+      status.classList.remove("hidden");
+
+      list.in
+```
