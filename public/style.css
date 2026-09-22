@@ -1,11 +1,13 @@
 :root {
-  --bg: #0e1420;
-  --panel: #161f30;
+  --bg: #0b1018;
+  --panel: #141b28;
+  --panel-2: #1a2333;
   --border: #263043;
-  --text: #e8edf5;
+  --text: #eaf0f8;
   --muted: #8a97ac;
   --accent: #35c46a;
   --accent-dim: #1d7a41;
+  --accent-soft: rgba(53, 196, 106, 0.12);
 }
 
 * { box-sizing: border-box; }
@@ -17,32 +19,50 @@ body {
   color: var(--text);
 }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  flex-wrap: wrap;
-  padding: 16px 24px;
-  background: var(--panel);
+/* ---------- Hero ---------- */
+.hero {
+  background:
+    radial-gradient(1200px 500px at 20% -10%, rgba(53, 196, 106, 0.22), transparent 60%),
+    radial-gradient(900px 400px at 90% -20%, rgba(53, 120, 196, 0.18), transparent 55%),
+    linear-gradient(180deg, #101a29 0%, var(--bg) 100%);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  padding: 56px 20px 40px;
 }
 
-.topbar h1 { margin: 0; font-size: 1.3rem; white-space: nowrap; }
+.hero-inner { max-width: 760px; margin: 0 auto; text-align: center; }
 
-.league-picker { position: relative; flex: 1; min-width: 240px; }
+.hero-badge {
+  display: inline-block;
+  font-size: 0.78rem;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid rgba(53, 196, 106, 0.35);
+  padding: 5px 12px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: 2.4rem;
+  letter-spacing: -0.02em;
+}
+
+.hero-sub { margin: 0 0 26px; color: var(--muted); font-size: 1.02rem; }
+
+.league-picker { position: relative; max-width: 520px; margin: 0 auto; }
 
 #league-search {
   width: 100%;
-  padding: 10px 14px;
-  border-radius: 8px;
+  padding: 13px 16px;
+  border-radius: 10px;
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--panel);
   color: var(--text);
   font-size: 0.95rem;
 }
+
+#league-search:focus { outline: none; border-color: var(--accent); }
 
 .league-results {
   position: absolute;
@@ -51,11 +71,12 @@ body {
   right: 0;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
   max-height: 320px;
   overflow-y: auto;
   display: none;
   z-index: 20;
+  text-align: left;
 }
 
 .league-results.open { display: block; }
@@ -69,17 +90,52 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.league-result-item:hover { background: #1d2738; }
+.league-result-item:hover { background: var(--panel-2); }
 .league-result-item img { width: 20px; height: 20px; object-fit: contain; }
 .league-result-item small { color: var(--muted); margin-left: auto; }
 
-main { max-width: 900px; margin: 0 auto; padding: 20px; }
+.quick-picks {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
 
-.current-league { margin-bottom: 12px; }
-.current-league h2 { margin: 0 0 2px; }
-.current-league span { color: var(--muted); font-size: 0.9rem; }
+.chip {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.chip:hover { border-color: var(--accent); background: var(--panel-2); }
+.chip.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+
+/* ---------- Main layout ---------- */
+main { max-width: 920px; margin: 0 auto; padding: 36px 20px 10px; }
+
+.panel-block { margin-bottom: 44px; }
+
+.panel-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.panel-heading h2 { margin: 0; font-size: 1.25rem; }
+.panel-sub { color: var(--muted); font-size: 0.82rem; }
+
 .hidden { display: none !important; }
 
+.status { color: var(--muted); padding: 20px 0; text-align: center; }
+
+/* ---------- Tabs ---------- */
 .tabs { display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
 
 .tab-btn {
@@ -88,7 +144,7 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
   color: var(--muted);
   padding: 10px 16px;
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   border-bottom: 2px solid transparent;
 }
 
@@ -97,33 +153,34 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
 
-.status { color: var(--muted); padding: 24px 0; text-align: center; }
-
-.standings-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-.standings-table th, .standings-table td { padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--border); }
+/* ---------- Standings ---------- */
+.standings-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; background: var(--panel); border-radius: 10px; overflow: hidden; }
+.standings-table th, .standings-table td { padding: 10px; text-align: center; border-bottom: 1px solid var(--border); }
+.standings-table th { color: var(--muted); font-weight: 500; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.03em; }
 .standings-table th:nth-child(2), .standings-table td:nth-child(2) { text-align: left; }
 .standings-table td.club { display: flex; align-items: center; gap: 8px; }
 .standings-table img.crest { width: 18px; height: 18px; object-fit: contain; }
-.standings-table tbody tr:hover { background: #1a2436; }
+.standings-table tbody tr:hover { background: var(--panel-2); }
 
+/* ---------- Fixtures ---------- */
 .fixtures-list { display: flex; flex-direction: column; gap: 10px; }
 
 .fixture-card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
+  border-radius: 12px;
+  padding: 16px 18px;
 }
 
 .fixture-teams { display: flex; align-items: center; justify-content: space-between; font-weight: 600; }
 .fixture-meta { color: var(--muted); font-size: 0.8rem; margin-top: 4px; }
 .fixture-predict-btn {
-  margin-top: 10px;
+  margin-top: 12px;
   background: var(--accent-dim);
   color: white;
   border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 7px 14px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 0.85rem;
 }
@@ -131,13 +188,47 @@ main { max-width: 900px; margin: 0 auto; padding: 20px; }
 .fixture-prediction { margin-top: 10px; font-size: 0.85rem; color: var(--text); display: none; }
 .fixture-prediction.open { display: block; }
 
+/* ---------- News ---------- */
+.news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+.news-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.news-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+.news-card .thumb {
+  width: 100%;
+  aspect-ratio: 16/9;
+  background: var(--panel-2);
+  object-fit: cover;
+}
+
+.news-card .news-body { padding: 14px 16px; }
+.news-card h3 { margin: 0 0 8px; font-size: 0.98rem; line-height: 1.35; }
+.news-card .news-meta { color: var(--muted); font-size: 0.76rem; display: flex; justify-content: space-between; }
+
+/* ---------- Highlights ---------- */
 .highlights-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-.highlight-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.highlight-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
 .highlight-card .embed { aspect-ratio: 16/9; }
 .highlight-card .embed iframe, .highlight-card .embed video { width: 100%; height: 100%; border: 0; }
 .highlight-card .meta { padding: 10px 12px; font-size: 0.85rem; }
 .highlight-card .meta strong { display: block; margin-bottom: 2px; }
 .highlight-card .meta span { color: var(--muted); }
 
-footer { text-align: center; color: var(--muted); font-size: 0.75rem; padding: 30px 16px; }
+footer { text-align: center; color: var(--muted); font-size: 0.75rem; padding: 30px 16px 46px; }
 footer a { color: var(--muted); }
+
+@media (max-width: 520px) {
+  .hero h1 { font-size: 1.9rem; }
+  .hero { padding: 40px 16px 32px; }
+}
