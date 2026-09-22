@@ -1,9 +1,9 @@
 const state = {
-  league: null,       // { id, name, country, logo }
+  league: null,
   season: new Date().getFullYear(),
 };
 
-// ---------- Tabs ----------
+// ---------- Tabs (Standings / Fixtures only — Highlights lives outside the tabs now) ----------
 document.querySelectorAll(".tab-btn").forEach((btn) => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
@@ -12,6 +12,46 @@ document.querySelectorAll(".tab-btn").forEach((btn) => {
     document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
   });
 });
+
+// ---------- Quick-pick league chips ----------
+document.querySelectorAll(".chip").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    document.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+    chip.classList.add("active");
+    selectLeagueById({
+      id: Number(chip.dataset.id),
+      name: chip.dataset.name,
+      country: chip.dataset.country,
+    });
+  });
+});
+
+// A quick-pick chip only gives us id/name/country, not the current season —
+// so we look that up via /api/leagues before loading standings/fixtures.
+async function selectLeagueById({ id, name, country }) {
+  showCurrentLeague(name, country, state.season);
+  try {
+    const res = await fetch(`/api/leagues?search=${encodeURIComponent(name)}`);
+    const json = await res.json();
+    const match = (json.response || []).find((item) => item.league.id === id);
+    const seasons = match?.seasons || [];
+    const current = seasons.find((s) => s.current) || seasons[seasons.length - 1];
+    state.season = current ? current.year : state.season;
+  } catch (err) {
+    console.error("Season lookup failed, using default year:", err);
+  }
+
+  state.league = { id, name, country };
+  showCurrentLeague(name, country, state.season);
+  loadStandings();
+  loadFixtures();
+}
+
+function showCurrentLeague(name, country, season) {
+  document.getElementById("current-league").classList.remove("hidden");
+  document.getElementById("league-name").textContent = name;
+  document.getElementById("league-country").textContent = `${country} · ${season}`;
+}
 
 // ---------- League search ----------
 const searchInput = document.getElementById("league-search");
@@ -64,7 +104,8 @@ function renderLeagueResults(items) {
 }
 
 function selectLeague(item) {
-  // Prefer the most recent season API-Football has for this league
+  document.querySelectorAll(".chip").forEach((c) => c.classList.remove("active"));
+
   const seasons = item.seasons || [];
   const current = seasons.find((s) => s.current) || seasons[seasons.length - 1];
   state.season = current ? current.year : state.season;
@@ -76,10 +117,7 @@ function selectLeague(item) {
     logo: item.league.logo,
   };
 
-  document.getElementById("current-league").classList.remove("hidden");
-  document.getElementById("league-name").textContent = state.league.name;
-  document.getElementById("league-country").textContent =
-    `${state.league.country} · ${state.season}`;
+  showCurrentLeague(state.league.name, state.league.country, state.season);
 
   resultsBox.classList.remove("open");
   searchInput.value = "";
@@ -129,7 +167,7 @@ async function loadStandings() {
     status.classList.add("hidden");
     table.classList.remove("hidden");
   } catch (err) {
-    status.textContent = "Couldn't load standings. Check the server's API-Football key.";
+    status.textContent = "Couldn't load standings. Check the API-Football key in Vercel.";
     console.error(err);
   }
 }
@@ -139,6 +177,7 @@ async function loadFixtures() {
   const status = document.getElementById("fixtures-status");
   const list = document.getElementById("fixtures-list");
   status.textContent = "Loading fixtures…";
+  status.classList.remove("hidden");
   list.innerHTML = "";
 
   try {
@@ -220,6 +259,57 @@ async function loadPrediction(fixtureId, box, btn) {
   }
 }
 
+// ---------- News ----------
+function timeAgo(dateStr) {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const hours = Math.floor(diffMs / (1000 * 60 * 60));
+  if (hours < 1) return "just now";
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+async function loadNews() {
+  const status = document.getElementById("news-status");
+  const grid = document.getElementById("news-grid");
+  try {
+    const res = await fetch("/api/news");
+    const json = await res.json();
+    const articles = json.response || [];
+
+    if (!articles.length) {
+      status.textContent = "No news available right now.";
+      return;
+    }
+    status.classList.add("hidden");
+
+    articles.forEach((a) => {
+      const card = document.createElement("a");
+      card.className = "news-card";
+      card.href = a.url;
+      card.target = "_blank";
+      card.rel = "noopener";
+      const img = a.urlToImage
+        ? `<img class="thumb" src="${a.urlToImage}" alt="" onerror="this.style.display='none'"/>`
+        : "";
+      card.innerHTML = `
+        ${img}
+        <div class="news-body">
+          <h3>${a.title || ""}</h3>
+          <div class="news-meta">
+            <span>${a.source?.name || ""}</span>
+            <span>${timeAgo(a.publishedAt)}</span>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  } catch (err) {
+    status.textContent = "Couldn't load news right now.";
+    console.error(err);
+  }
+}
+
 // ---------- Highlights ----------
 async function loadHighlights() {
   const status = document.getElementById("highlights-status");
@@ -254,4 +344,5 @@ async function loadHighlights() {
   }
 }
 
+loadNews();
 loadHighlights();
