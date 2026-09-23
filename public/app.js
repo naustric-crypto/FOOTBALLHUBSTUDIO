@@ -152,31 +152,38 @@ async function loadStandings() {
   table.classList.add("hidden");
 
   try {
-    let { rows, error } = await fetchStandingsRows(state.league.id, state.season);
-
-    if (error) {
-      status.textContent = `Table request failed: ${error}`;
-      return;
-    }
-
-    // A freshly-started season sometimes isn't populated yet on a free key
-    // even when it's marked as covered — fall back one season automatically.
+    let rows = [];
     let usedSeason = state.season;
-    if (!rows.length) {
-      const fallback = state.season - 1;
-      const retry = await fetchStandingsRows(state.league.id, fallback);
-      if (!retry.error && retry.rows.length) {
-        rows = retry.rows;
-        usedSeason = fallback;
-        state.season = fallback;
-        document.getElementById("league-country").textContent =
-          document.getElementById("league-country").textContent.replace(/\d{4}/, fallback);
+    let lastError = null;
+
+    // Try the selected season, then step back up to 3 years. API-Football
+    // returns HTTP 200 with an empty array rather than an error when a
+    // season has no data on this plan, so we can't know in advance —
+    // we just have to probe.
+    for (let offset = 0; offset < 4; offset++) {
+      const trySeason = state.season - offset;
+      const result = await fetchStandingsRows(state.league.id, trySeason);
+      if (result.error) {
+        lastError = result.error;
+        continue;
+      }
+      if (result.rows.length) {
+        rows = result.rows;
+        usedSeason = trySeason;
+        break;
       }
     }
 
+    if (usedSeason !== state.season) {
+      state.season = usedSeason;
+      document.getElementById("league-country").textContent =
+        document.getElementById("league-country").textContent.replace(/\d{4}/, usedSeason);
+    }
+
     if (!rows.length) {
-      status.textContent =
-        `No table available for ${usedSeason} on your API plan. Try a bigger league or check its season coverage.`;
+      status.textContent = lastError
+        ? `Table request failed: ${lastError}`
+        : `No table data found for ${state.league.name} in the last 4 seasons on your API plan.`;
       return;
     }
 
