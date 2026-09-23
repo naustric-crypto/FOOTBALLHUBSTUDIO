@@ -26,6 +26,17 @@ document.querySelectorAll(".score-tab").forEach((tab) => {
   });
 });
 
+// API-Football's free tier includes every league, but not every season has
+// standings/fixtures data on that tier — the "current" season flag doesn't
+// mean the free plan actually has data for it. Prefer the most recent
+// season whose coverage says standings are included; only fall back to
+// "current" if none of the seasons report that coverage.
+function pickBestSeason(seasons) {
+  const withStandings = seasons.filter((s) => s.coverage?.standings);
+  if (withStandings.length) return withStandings[withStandings.length - 1];
+  return seasons.find((s) => s.current) || seasons[seasons.length - 1];
+}
+
 async function selectLeagueById({ id, name, country }) {
   showCurrentLeague(name, country, state.season);
   try {
@@ -33,8 +44,8 @@ async function selectLeagueById({ id, name, country }) {
     const json = await res.json();
     const match = (json.response || []).find((item) => item.league.id === id);
     const seasons = match?.seasons || [];
-    const current = seasons.find((s) => s.current) || seasons[seasons.length - 1];
-    state.season = current ? current.year : state.season;
+    const best = pickBestSeason(seasons);
+    state.season = best ? best.year : state.season;
   } catch (err) {
     console.error("Season lookup failed, using default year:", err);
   }
@@ -105,8 +116,8 @@ function selectLeague(item) {
   document.querySelectorAll(".score-tab").forEach((t) => t.classList.remove("active"));
 
   const seasons = item.seasons || [];
-  const current = seasons.find((s) => s.current) || seasons[seasons.length - 1];
-  state.season = current ? current.year : state.season;
+  const best = pickBestSeason(seasons);
+  state.season = best ? best.year : state.season;
 
   state.league = {
     id: item.league.id,
@@ -140,7 +151,8 @@ async function loadStandings() {
     const rows = json.response?.[0]?.league?.standings?.[0] || [];
 
     if (!rows.length) {
-      status.textContent = "No table available for this league/season.";
+      status.textContent =
+        `No table available for ${state.season} on your API plan. Try a bigger league or check its season coverage.`;
       return;
     }
 
