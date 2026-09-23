@@ -148,6 +148,12 @@ async function loadStandings() {
       `/api/standings?league=${state.league.id}&season=${state.season}`
     );
     const json = await res.json();
+
+    if (!res.ok) {
+      status.textContent = `Table request failed: ${json.error || res.status}`;
+      return;
+    }
+
     const rows = json.response?.[0]?.league?.standings?.[0] || [];
 
     if (!rows.length) {
@@ -195,6 +201,12 @@ async function loadFixtures() {
       `/api/fixtures?league=${state.league.id}&season=${state.season}&next=8`
     );
     const json = await res.json();
+
+    if (!res.ok) {
+      status.textContent = `Fixtures request failed: ${json.error || res.status}`;
+      return;
+    }
+
     const fixtures = json.response || [];
 
     if (!fixtures.length) {
