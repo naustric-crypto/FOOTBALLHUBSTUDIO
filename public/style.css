@@ -262,6 +262,26 @@ main { max-width: 960px; margin: 0 auto; padding: 40px 24px 10px; }
 .highlight-card .meta strong { display: block; margin-bottom: 2px; font-size: 0.95rem; }
 .highlight-card .meta span { color: var(--muted); font-size: 0.82rem; font-style: italic; }
 
+/* ---------- Ad slots ---------- */
+.ad-slot {
+  max-width: 960px;
+  margin: 0 auto 48px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  text-align: center;
+}
+
+.ad-label {
+  display: block;
+  font-family: "Oswald", sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
 footer {
   border-top: 1px solid var(--line);
   color: var(--muted);
