@@ -136,6 +136,14 @@ function selectLeague(item) {
 }
 
 // ---------- Standings ----------
+async function fetchStandingsRows(league, season) {
+  const res = await fetch(`/api/standings?league=${league}&season=${season}`);
+  const json = await res.json();
+  if (!res.ok) return { error: json.error || res.status };
+  const rows = json.response?.[0]?.league?.standings?.[0] || [];
+  return { rows };
+}
+
 async function loadStandings() {
   const status = document.getElementById("standings-status");
   const table = document.getElementById("standings-table");
@@ -144,21 +152,31 @@ async function loadStandings() {
   table.classList.add("hidden");
 
   try {
-    const res = await fetch(
-      `/api/standings?league=${state.league.id}&season=${state.season}`
-    );
-    const json = await res.json();
+    let { rows, error } = await fetchStandingsRows(state.league.id, state.season);
 
-    if (!res.ok) {
-      status.textContent = `Table request failed: ${json.error || res.status}`;
+    if (error) {
+      status.textContent = `Table request failed: ${error}`;
       return;
     }
 
-    const rows = json.response?.[0]?.league?.standings?.[0] || [];
+    // A freshly-started season sometimes isn't populated yet on a free key
+    // even when it's marked as covered — fall back one season automatically.
+    let usedSeason = state.season;
+    if (!rows.length) {
+      const fallback = state.season - 1;
+      const retry = await fetchStandingsRows(state.league.id, fallback);
+      if (!retry.error && retry.rows.length) {
+        rows = retry.rows;
+        usedSeason = fallback;
+        state.season = fallback;
+        document.getElementById("league-country").textContent =
+          document.getElementById("league-country").textContent.replace(/\d{4}/, fallback);
+      }
+    }
 
     if (!rows.length) {
       status.textContent =
-        `No table available for ${state.season} on your API plan. Try a bigger league or check its season coverage.`;
+        `No table available for ${usedSeason} on your API plan. Try a bigger league or check its season coverage.`;
       return;
     }
 
