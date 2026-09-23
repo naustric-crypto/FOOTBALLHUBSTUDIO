@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Video - Analyst Studio</title>
+<link rel="stylesheet" href="/admin/studio.css">
+</head>
+<body>
+<main>
+  <div class="crumbs"><a href="/admin/youtube">← Latest Football</a></div>
+  <div id="notice"></div>
+  <div class="split">
+    <div>
+      <div id="player" class="embed"></div>
+      <h1 id="title" style="margin-top:14px">Loading…</h1>
+      <div id="meta" class="meta"></div>
+      <div class="row" style="margin:12px 0">
+        <a id="openyt" class="btn yt" target="_blank" rel="noopener">Open on YouTube</a>
+        <button id="analyze">Analyze</button>
+        <button id="save" class="ghost">Save</button>
+      </div>
+      <h3>Description</h3>
+      <div id="desc" class="copy"></div>
+    </div>
+    <div>
+      <h3>Media rights</h3>
+      <div id="rights" class="card"></div>
+
+      <h3>Match identification</h3>
+      <div id="match" class="card">
+        <div class="small">Not identified yet.</div>
+        <button id="identify" class="yt" style="margin-top:8px">Identify Match</button>
+      </div>
+
+      <h3>Metadata</h3>
+      <div id="metadata" class="card"></div>
+    </div>
+  </div>
+</main>
+<script src="/admin/studio.js"></script>
+<script>
+(function () {
+  const S = window.Studio;
+  S.mount(null);
+  const DASH = "\u2014";
+  const DOT = "\u00b7";
+  const id = location.pathname.split("/").filter(Boolean).pop();
+  let match = null;
+
+  function showNotice(html) { document.getElementById("notice").innerHTML = html; }
+
+  async function load() {
+    try {
+      const d = await S.get(S.API.video(id));
+      match = d.match || null;
+      renderVideo(d);
+      if (match) renderMatch(match, d.identified);
+      wire();
+    } catch (err) {
+      S.errorBox(document.getElementById("notice"), err.message);
+    }
+  }
+
+  function renderVideo(d) {
+    const v = d.video;
+    document.getElementById("player").innerHTML = v.embed_url
+      ? '<iframe src="' + S.esc(v.embed_url) + '" title="YouTube video player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>'
+      : "";
+    document.getElementById("title").textContent = v.title || "(untitled)";
+    document.getElementById("meta").textContent =
+      (v.channel_title || "") + " " + DOT + " published " + S.fmtDate(v.published_at) +
+      (v.duration_seconds ? " " + DOT + " " + S.fmtDuration(v.duration_seconds) : "");
+    document.getElementById("desc").textContent = v.description || "(no description)";
+    document.getElementById("openyt").href = v.youtube_url || "#";
+
+    const rights = d.media_status || v.media_status || "EMBED_ONLY";
+    const embedOnly = rights === "EMBED_ONLY";
+    document.getElementById("rights").innerHTML =
+      '<div class="row">' + S.sourceBadge("YouTube") +
+      '<span class="badge warn">' + S.esc(rights) + "</span></div>" +
+      (embedOnly
+        ? '<div class="small">Third-party highlights default to EMBED_ONLY. This video is embedded from YouTube, never downloaded or republished. Video-level tactical analysis requires authorized source footage.</div>' +
+          '<a class="btn ghost" href="/admin/analysis/new?videoId=' + encodeURIComponent(id) + '">Upload authorized footage</a>'
+        : '<div class="small">Rights permit deeper processing.</div>');
+
+    document.getElementById("metadata").innerHTML = metaTable({
+      "Video ID": v.youtube_video_id,
+      Channel: v.channel_title,
+      Published: S.fmtDate(v.published_at),
+      Duration: S.fmtDuration(v.duration_seconds),
+      Category: v.category || DASH,
+      Captions: v.caption_available ? "available" : "none",
+      Views: S.fmtNum(v.view_count),
+      Likes: S.fmtNum(v.like_count),
+      Source: v.source || "youtube_search",
+    });
+  }
+
+  function metaTable(obj) {
+    return "<table><tbody>" +
+      Object.entries(obj).map(([k, val]) =>
+        "<tr><th>" + S.esc(k) + "</th><td>" + S.esc(val == null ? DASH : val) + "</td></tr>"
+      ).join("") + "</tbody></table>";
+  }
+
+  function renderMatch(m, identified) {
+    const f = (m.home_team || "?") + " vs " + (m.away_team || "?");
+    const conf = identified && identified.confidence != null ? identified.confidence : (m.confidence || 0);
+    const fields = m.field_confidence || {};
+    document.getElementById("match").innerHTML =
+      "<div>Detected:</div>" +
+      '<div style="font-size:18px;font-weight:800">' + S.esc(f) + "</div>" +
+      '<div class="conf">Confidence: ' + S.confBadge(conf) + " " + S.sourceBadge(m.source) + "</div>" +
+      '<div class="conf">' + S.esc(m.competition || "competition unknown") +
+      (m.match_date ? " " + DOT + " " + S.esc(m.match_date) : "") +
+      (m.score && m.score !== "-" ? " " + DOT + " " + S.esc(m.score) : "") + "</div>" +
+      '<div class="small">Field confidence: home ' + S.pct(fields.home_team) +
+      ", away " + S.pct(fields.away_team) + ", competition " + S.pct(fields.competition) + "</div>" +
+      '<div class="row" style="margin-top:8px">' +
+      '<button id="confirmMatch">Confirm Match</button>' +
+      '<button id="changeMatch" class="ghost">Change Match</button>' +
+      "</div>" +
+      '<form id="changeForm" class="filters" style="display:none;margin-top:10px">' +
+      field("home_team", "Home team", m.home_team) +
+      field("away_team", "Away team", m.away_team) +
+      field("competition", "Competition", m.competition) +
+      field("match_date", "Match date", m.match_date, "date") +
+      field("score", "Score", m.score) +
+      '<div style="align-self:end"><button type="submit">Save changes</button></div>' +
+      "</form>";
+
+    wireMatchButtons(m);
+  }
+
+  function field(name, label, value, type) {
+    return "<div><label>" + label + '</label><input name="' + name + '" type="' + (type || "text") +
+      '" value="' + S.esc(value || "") + '"></div>';
+  }
+
+  function wireMatchButtons(m) {
+    const confirmBtn = document.getElementById("confirmMatch");
+    const changeBtn = document.getElementById("changeMatch");
+    const form = document.getElementById("changeForm");
+    if (confirmBtn) confirmBtn.addEventListener("click", function () { doConfirm(m, {}); });
+    if (changeBtn) changeBtn.addEventListener("click", function () {
+      form.style.display = form.style.display === "none" ? "grid" : "none";
+    });
+    if (form) form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      const data = {};
+      new FormData(form).forEach(function (v, k) { if (v) data[k] = v; });
+      doConfirm(m, data);
+    });
+  }
+
+  async function doConfirm(m, overrides) {
+    if (!m.id) { showNotice('<div class="notice">No stored match id to confirm. Run Identify Match first.</div>'); return; }
+    const r = await S.post(S.API.confirmMatch, Object.assign({ matchId: m.id }, overrides));
+    if (r.ok) {
+      match = r.match;
+      showNotice('<div class="notice">Match confirmed. Source: ' + S.esc(r.match.source) + "</div>");
+      renderMatch(r.match, { confidence: 1 });
+    } else {
+      showNotice('<div class="error">' + S.esc(r.reason || r.error || "confirm failed") + "</div>");
+    }
+  }
+
+  function wire() {
+    document.getElementById("identify").addEventListener("click", async function () {
+      showNotice('<div class="notice">Identifying match\u2026</div>');
+      const r = await S.post(S.API.identify, { videoId: id });
+      if (r.ok) {
+        match = r.match;
+        showNotice("");
+        renderMatch(r.match, r.identified);
+      } else {
+        showNotice('<div class="notice">' + S.esc(r.reason || "Could not identify a match. You can enter it manually.") + "</div>");
+        renderMatch({ home_team: "", away_team: "", confidence: 0, id: null }, { confidence: 0 });
+      }
+    });
+
+    document.getElementById("analyze").addEventListener("click", async function () {
+      showNotice('<div class="notice">Generating analysis\u2026</div>');
+      const r = await S.post(S.API.analysisNew, { videoId: id });
+      if (r.ok) location.href = "/admin/analysis/" + r.analysis.id;
+      else showNotice('<div class="error">' + S.esc(r.reason || r.error || "analysis failed") + "</div>");
+    });
+
+    document.getElementById("save").addEventListener("click", function () {
+      showNotice('<div class="notice">Saved. This video is stored and available on the dashboard.</div>');
+    });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

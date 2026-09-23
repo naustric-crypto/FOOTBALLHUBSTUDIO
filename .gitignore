@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Vercel
+.vercel/
+
+# Environment (keep .env.EXAMPLE committed)
+.env
+.env.local
+.env.*.local
+!.env.EXAMPLE
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Temporary validation/scratch scripts
+_validate.js
+smoke_test.js

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latest Football — Analyst Studio</title>
+<link rel="stylesheet" href="/admin/studio.css">
+</head>
+<body>
+<main>
+  <h1>Latest Football</h1>
+  <p class="sub">Fresh YouTube discovery across the major competitions — newest first.</p>
+  <div id="notice"></div>
+  <div id="chips" class="chips"></div>
+  <div class="row" style="margin-bottom:14px">
+    <button id="refresh" class="yt">Refresh latest</button>
+    <span id="pollinfo" class="small"></span>
+  </div>
+  <div id="results" class="grid cols-3"></div>
+</main>
+<script src="/admin/studio.js"></script>
+<script>
+(function () {
+  const S = window.Studio;
+  S.mount("youtube");
+  const results = document.getElementById("results");
+  const chips = document.getElementById("chips");
+
+  chips.innerHTML = [
+    "Premier League highlights", "Champions League highlights", "La Liga highlights",
+    "Serie A highlights", "Bundesliga highlights", "Ligue 1 highlights",
+    "Arsenal", "Chelsea", "Liverpool", "Manchester City", "Manchester United",
+    "Real Madrid", "Barcelona", "Bayern Munich",
+  ].map((q) => '<span class="chip" data-q="' + S.esc(q) + '">' + S.esc(q) + "</span>").join("");
+
+  chips.addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    location.href = "/admin/youtube/search?q=" + encodeURIComponent(chip.dataset.q);
+  });
+
+  async function loadLatest() {
+    S.loading(results);
+    try {
+      const d = await S.get(S.API.latest);
+      document.getElementById("pollinfo").textContent =
+        d.poll_seconds ? "Poll interval: " + d.poll_seconds + "s" : "";
+      if (d.configured === false || d.notice) {
+        document.getElementById("notice").innerHTML =
+          '<div class="notice">' + S.esc(d.notice || "YouTube is not configured.") + "</div>";
+      } else {
+        document.getElementById("notice").innerHTML = "";
+      }
+      render(d.response || []);
+    } catch (err) {
+      S.errorBox(results, err.message);
+    }
+  }
+
+  function render(items) {
+    results.innerHTML = "";
+    if (!items.length) {
+      results.innerHTML = '<div class="small">No videos yet. Add YOUTUBE_API_KEY and refresh.</div>';
+      return;
+    }
+    items.forEach((v) => results.appendChild(S.videoCard(v)));
+  }
+
+  document.getElementById("refresh").addEventListener("click", () => {
+    // Bypass cache by varying the query.
+    S.get(S.API.latest + "?t=" + Date.now()).then((d) => render(d.response || [])).catch((e) => S.errorBox(results, e.message));
+  });
+
+  loadLatest();
+})();
+</script>
+</body>
+</html>

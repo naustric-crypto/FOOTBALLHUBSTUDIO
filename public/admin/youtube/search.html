@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search — Analyst Studio</title>
+<link rel="stylesheet" href="/admin/studio.css">
+</head>
+<body>
+<main>
+  <h1>YouTube Search</h1>
+  <p class="sub">Keyword, date range, order, region, language and pagination. Newest first.</p>
+  <div id="chips" class="chips"></div>
+
+  <form id="filters" class="filters">
+    <div>
+      <label for="q">Keyword</label>
+      <input id="q" name="q" placeholder="e.g. Premier League highlights">
+    </div>
+    <div>
+      <label for="publishedAfter">Published after</label>
+      <input id="publishedAfter" type="date">
+    </div>
+    <div>
+      <label for="publishedBefore">Published before</label>
+      <input id="publishedBefore" type="date">
+    </div>
+    <div>
+      <label for="order">Order</label>
+      <select id="order"><option value="date">date (newest)</option><option value="relevance">relevance</option><option value="viewCount">viewCount</option></select>
+    </div>
+    <div>
+      <label for="type">Type</label>
+      <select id="type"><option value="video">video</option><option value="channel">channel</option><option value="playlist">playlist</option></select>
+    </div>
+    <div>
+      <label for="videoCategoryId">Video category</label>
+      <input id="videoCategoryId" placeholder="e.g. 17 (Sport)">
+    </div>
+    <div>
+      <label for="language">Language</label>
+      <input id="language" value="en">
+    </div>
+    <div>
+      <label for="region">Region</label>
+      <input id="region" value="GB">
+    </div>
+    <div>
+      <label for="maxResults">Max results</label>
+      <input id="maxResults" type="number" min="1" max="50" value="12">
+    </div>
+    <div style="align-self:end">
+      <button type="submit" class="yt" style="width:100%">Search</button>
+    </div>
+  </form>
+
+  <div id="notice"></div>
+  <div class="row" style="margin-bottom:12px">
+    <span id="meta" class="small"></span>
+    <span class="spacer"></span>
+    <button id="next" class="ghost" disabled>Next page →</button>
+  </div>
+  <div id="results" class="grid cols-3"></div>
+</main>
+<script src="/admin/studio.js"></script>
+<script>
+(function () {
+  const S = window.Studio;
+  S.mount("search");
+  const results = document.getElementById("results");
+  const meta = document.getElementById("meta");
+  const nextBtn = document.getElementById("next");
+  const params = new URLSearchParams(location.search);
+  let nextToken = null;
+  let lastQuery = "";
+
+  document.getElementById("q").value = params.get("q") || "";
+
+  const quick = [
+    "Premier League highlights", "Champions League highlights", "La Liga highlights",
+    "Serie A highlights", "Bundesliga highlights", "Ligue 1 highlights",
+    "Arsenal", "Chelsea", "Liverpool", "Manchester City", "Manchester United",
+    "Real Madrid", "Barcelona", "Bayern Munich",
+  ];
+  document.getElementById("chips").innerHTML = quick
+    .map((q) => '<span class="chip" data-q="' + S.esc(q) + '">' + S.esc(q) + "</span>")
+    .join("");
+  document.getElementById("chips").addEventListener("click", (e) => {
+    const chip = e.target.closest(".chip");
+    if (!chip) return;
+    document.getElementById("q").value = chip.dataset.q;
+    runSearch(chip.dataset.q, null);
+  });
+
+  function buildUrl(q, pageToken) {
+    const u = new URLSearchParams();
+    u.set("q", q);
+    const map = {
+      publishedAfter: "publishedAfter", publishedBefore: "publishedBefore",
+      order: "order", type: "type", videoCategoryId: "videoCategoryId",
+      language: "language", region: "region", maxResults: "maxResults",
+    };
+    Object.entries(map).forEach(([id, key]) => {
+      const v = document.getElementById(id).value.trim();
+      if (v) u.set(key, id === "publishedAfter" || id === "publishedBefore" ? v + "T00:00:00Z" : v);
+    });
+    if (pageToken) u.set("pageToken", pageToken);
+    return S.API.search + "?" + u.toString();
+  }
+
+  async function runSearch(q, pageToken) {
+    if (!q) return;
+    lastQuery = q;
+    S.loading(results);
+    nextBtn.disabled = true;
+    try {
+      const d = await S.get(buildUrl(q, pageToken));
+      document.getElementById("notice").innerHTML = d.notice
+        ? '<div class="notice">' + S.esc(d.notice) + "</div>" : "";
+      nextToken = d.nextPageToken || null;
+      nextBtn.disabled = !nextToken;
+      meta.textContent =
+        (d.response || []).length + " results for \u201c" + q + "\u201d" + (d.cached ? " (cached)" : "");
+      render(d.response || []);
+    } catch (err) {
+      S.errorBox(results, err.message);
+    }
+  }
+
+  function render(items) {
+    results.innerHTML = "";
+    if (!items.length) {
+      results.innerHTML = '<div class="small">No results. Try a different keyword or widen the date range.</div>';
+      return;
+    }
+    items.forEach((v) => results.appendChild(S.videoCard(v)));
+  }
+
+  document.getElementById("filters").addEventListener("submit", (e) => {
+    e.preventDefault();
+    runSearch(document.getElementById("q").value.trim(), null);
+  });
+  nextBtn.addEventListener("click", () => runSearch(lastQuery, nextToken));
+
+  if (document.getElementById("q").value) runSearch(document.getElementById("q").value, null);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/admin/youtube/videos/:id", "destination": "/admin/video.html" },
+    { "source": "/admin/youtube/search", "destination": "/admin/youtube/search.html" },
+    { "source": "/admin/youtube", "destination": "/admin/youtube/index.html" },
+    { "source": "/admin/analysis/new", "destination": "/admin/analysis/new.html" },
+    { "source": "/admin/analysis/:id", "destination": "/admin/analysis/detail.html" },
+    { "source": "/admin", "destination": "/admin/index.html" },
+    { "source": "/analysis/:slug", "destination": "/article.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" }
+      ]
+    }
+  ]
+}

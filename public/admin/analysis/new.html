@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New Analysis - Analyst Studio</title>
+<link rel="stylesheet" href="/admin/studio.css">
+</head>
+<body>
+<main>
+  <h1>New Analysis</h1>
+  <p class="sub">Combine YouTube metadata, optional football-data, authorized footage and AI reasoning.</p>
+  <div id="notice"></div>
+
+  <div class="split">
+    <div>
+      <h3>1. Source video</h3>
+      <form id="videoForm" class="filters">
+        <div style="grid-column:1/-1">
+          <label for="videoId">YouTube video id or URL</label>
+          <input id="videoId" placeholder="e.g. dQw4w9WgXcQ or https://youtu.be/...">
+        </div>
+        <div style="align-self:end">
+          <button type="submit">Load video</button>
+        </div>
+      </form>
+      <div id="video"></div>
+
+      <h3>2. Authorized footage (optional)</h3>
+      <div class="notice">Only upload footage you have the right to use (OWNED, LICENSED or PERMISSION_GRANTED). YouTube third-party highlights are EMBED_ONLY and are never downloaded.</div>
+      <form id="uploadForm" class="filters">
+        <div>
+          <label for="filename">Filename</label>
+          <input id="filename" placeholder="match-clip.mp4">
+        </div>
+        <div>
+          <label for="mediaStatus">Media status</label>
+          <select id="mediaStatus">
+            <option>OWNED</option><option>LICENSED</option>
+            <option>PERMISSION_GRANTED</option><option>PUBLIC_DOMAIN</option>
+            <option>UNKNOWN</option>
+          </select>
+        </div>
+        <div>
+          <label for="file">File</label>
+          <input id="file" type="file">
+        </div>
+        <div style="align-self:end">
+          <button type="submit" class="ghost">Register footage</button>
+        </div>
+      </form>
+      <div id="asset"></div>
+
+      <h3>3. Administrator notes</h3>
+      <textarea id="notes" rows="4" placeholder="Context, observations you already know, players to watch..."></textarea>
+    </div>
+
+    <div>
+      <h3>Summary</h3>
+      <div id="summary" class="card"><div class="small">Load a video to begin.</div></div>
+      <button id="run" style="width:100%;margin-top:12px" disabled>Generate analysis</button>
+    </div>
+  </div>
+</main>
+<script src="/admin/studio.js"></script>
+<script>
+(function () {
+  const S = window.Studio;
+  S.mount("analysis");
+  const DASH = "\u2014";
+  let currentVideo = null;
+  let currentAsset = null;
+
+  const params = new URLSearchParams(location.search);
+  if (params.get("videoId")) document.getElementById("videoId").value = params.get("videoId");
+
+  document.getElementById("videoForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    loadVideo(extractId(document.getElementById("videoId").value.trim()));
+  });
+
+  function extractId(v) {
+    if (!v) return "";
+    const m = v.match(/[?&]v=([^&]+)/) || v.match(/youtu\.be\/([^?&]+)/) || v.match(/embed\/([^?&]+)/);
+    return m ? m[1] : v;
+  }
+
+  async function loadVideo(id) {
+    if (!id) return;
+    S.loading(document.getElementById("video"));
+    try {
+      const d = await S.get(S.API.video(id));
+      currentVideo = d.video;
+      renderVideo(d.video);
+      updateSummary();
+    } catch (err) {
+      S.errorBox(document.getElementById("video"), err.message);
+    }
+  }
+
+  function renderVideo(v) {
+    document.getElementById("video").innerHTML =
+      '<div class="card"><div class="row">' +
+      '<img class="thumb" style="width:160px" src="' + S.esc(v.thumbnail || "") + '" alt="">' +
+      '<div><b>' + S.esc(v.title) + "</b>" +
+      '<div class="meta">' + S.esc(v.channel_title || "") + " " + DASH + " " + S.fmtDate(v.published_at) + "</div>" +
+      '<div class="row">' + S.categoryBadge(v.category) + S.sourceBadge("YouTube") + "</div></div></div></div>";
+  }
+
+  document.getElementById("uploadForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+    const filename = document.getElementById("filename").value.trim();
+    const mediaStatus = document.getElementById("mediaStatus").value;
+    if (!filename) return;
+    const r = await S.post(S.API.upload, {
+      action: "register", filename: filename, mediaStatus: mediaStatus,
+      contentType: (document.getElementById("file").files[0] || {}).type || "video/mp4",
+      size: (document.getElementById("file").files[0] || {}).size || null,
+    });
+    if (r.ok) {
+      currentAsset = r.asset;
+      document.getElementById("asset").innerHTML =
+        '<div class="notice">Registered ' + S.esc(r.asset.filename) + " as " + S.esc(r.asset.media_status) +
+        ". " + S.esc(r.notice || "") + "</div>";
+      updateSummary();
+    } else {
+      S.errorBox(document.getElementById("asset"), r.error || "upload failed");
+    }
+  });
+
+  function updateSummary() {
+    const parts = [];
+    if (currentVideo) parts.push('<div class="fact"><b>Video:</b> ' + S.esc(currentVideo.title) + "</div>");
+    parts.push('<div class="obs"><b>Match:</b> ' + (currentVideo && currentVideo.match_title ? S.esc(currentVideo.match_title) : "to be identified") + "</div>");
+    parts.push('<div class="inf"><b>Footage:</b> ' +
+      (currentAsset ? S.esc(currentAsset.filename + " (" + currentAsset.media_status + ")") : "none (YouTube metadata + AI only)") + "</div>");
+    parts.push('<div class="fact"><b>Source indicator:</b> ' + S.sourceBadge("YouTube") + " + optional Football API</div>");
+    document.getElementById("summary").innerHTML = parts.join("");
+    document.getElementById("run").disabled = !currentVideo;
+  }
+
+  document.getElementById("run").addEventListener("click", async function () {
+    if (!currentVideo) return;
+    document.getElementById("run").disabled = true;
+    document.getElementById("run").textContent = "Generating\u2026";
+    try {
+      const r = await S.post(S.API.analysisNew, {
+        videoId: currentVideo.youtube_video_id,
+        assetId: currentAsset ? currentAsset.id : null,
+        notes: document.getElementById("notes").value,
+      });
+      if (r.ok) location.href = "/admin/analysis/" + r.analysis.id;
+      else S.errorBox(document.getElementById("notice"), r.reason || r.error || "analysis failed");
+    } catch (err) {
+      S.errorBox(document.getElementById("notice"), err.message);
+    } finally {
+      document.getElementById("run").disabled = false;
+      document.getElementById("run").textContent = "Generate analysis";
+    }
+  });
+
+  if (document.getElementById("videoId").value) loadVideo(extractId(document.getElementById("videoId").value.trim()));
+  updateSummary();
+})();
+</script>
+</body>
+</html>

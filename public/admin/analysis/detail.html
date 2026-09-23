@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analysis - Analyst Studio</title>
+<link rel="stylesheet" href="/admin/studio.css">
+</head>
+<body>
+<main>
+  <div class="crumbs"><a href="/admin">Dashboard</a> / <a href="/admin/analysis/new">New Analysis</a></div>
+  <div id="notice"></div>
+  <div id="header"></div>
+  <div id="pipeline" class="statusline"></div>
+
+  <div class="split">
+    <div>
+      <h3>Facts <span class="small">confirmed / sourced</span></h3>
+      <div id="facts"></div>
+      <h3>Observations</h3>
+      <div id="observations"></div>
+      <h3>Inferences <span class="small">not confirmed</span></h3>
+      <div id="inferences"></div>
+
+      <h3>AI Match Report</h3>
+      <div id="report" class="card"></div>
+
+      <h3>Authorized footage events</h3>
+      <div id="events"></div>
+    </div>
+    <div>
+      <h3>Social content</h3>
+      <button id="genContent" class="fh">Generate social content</button>
+      <div id="social" style="margin-top:12px"></div>
+
+      <h3>Funnel URLs</h3>
+      <div id="funnel" class="card"></div>
+    </div>
+  </div>
+</main>
+<script src="/admin/studio.js"></script>
+<script>
+(function () {
+  const S = window.Studio;
+  S.mount("analysis");
+  const DASH = "\u2014";
+  // Support both /admin/analysis/:id and /admin/analysis/x?slug=... (the
+  // dashboard links to analyses by slug).
+  const slugParam = new URLSearchParams(location.search).get("slug");
+  const id = slugParam || location.pathname.split("/").filter(Boolean).pop();
+  let data = null;
+
+  function list(items, cls) {
+    if (!items || !items.length) return '<div class="small">None recorded.</div>';
+    return items.map(function (x) {
+      const text = typeof x === "string" ? x : (x.text || x.claim || x.statement || JSON.stringify(x));
+      const conf = x && x.confidence != null ? ' <span class="conf">' + S.confBadge(x.confidence) + "</span>" : "";
+      const src = x && x.source ? ' <span class="pill">' + S.esc(x.source) + "</span>" : "";
+      return '<div class="' + cls + '">' + S.esc(text) + conf + src + "</div>";
+    }).join("");
+  }
+
+  async function load() {
+    try {
+      data = await S.get(slugParam ? S.API.analysisBySlug(slugParam) : S.API.analysis(id));
+      render();
+    } catch (err) {
+      S.errorBox(document.getElementById("notice"), err.message);
+    }
+  }
+
+  function render() {
+    const a = data.analysis || {};
+    const m = data.match || {};
+
+    document.getElementById("header").innerHTML =
+      "<h1>" + S.esc((m.home_team || "?") + " vs " + (m.away_team || "?")) + "</h1>" +
+      '<p class="sub">' + S.esc(m.competition || "competition unknown") +
+      (m.match_date ? " " + DASH + " " + S.esc(m.match_date) : "") +
+      (m.score && m.score !== "-" ? " " + DASH + " " + S.esc(m.score) : "") +
+      " " + S.sourceBadge(a.source_indicator) + "</p>";
+
+    const stage = (data.pipeline && data.pipeline.stage) || a.stage || "DISCOVERED";
+    renderPipeline(stage);
+
+    document.getElementById("facts").innerHTML = list(a.facts, "fact");
+    document.getElementById("observations").innerHTML = list(a.observations, "obs");
+    document.getElementById("inferences").innerHTML = list(a.inferences, "inf");
+
+    const rep = a.report || {};
+    document.getElementById("report").innerHTML = Object.keys(rep).length
+      ? Object.entries(rep).map(function (kv) {
+          const title = kv[0].replace(/_/g, " ");
+          const val = Array.isArray(kv[1]) ? kv[1].join(" ") : kv[1];
+          return '<div style="margin-bottom:10px"><b>' + S.esc(title) + "</b><div>" + S.esc(val) + "</div></div>";
+        }).join("")
+      : '<div class="small">No report yet.</div>';
+
+    const events = (a.footage && a.footage.events) || [];
+    document.getElementById("events").innerHTML = events.length
+      ? "<table><thead><tr><th>Time</th><th>Event</th><th>Team</th><th>Evidence</th><th>Conf.</th><th>Source</th></tr></thead><tbody>" +
+        events.map(function (e) {
+          return "<tr><td>" + S.esc(e.timestamp || DASH) + "</td><td>" + S.esc(e.event_type || DASH) +
+            "</td><td>" + S.esc(e.team || DASH) + "</td><td>" + S.esc(e.evidence || DASH) +
+            "</td><td>" + S.confBadge(e.confidence) + "</td><td>" + S.esc(e.source || DASH) + "</td></tr>";
+        }).join("") + "</tbody></table>"
+      : '<div class="small">No authorized footage analyzed. ' +
+        "Video-level tactical analysis requires authorized source footage.</div>";
+
+    renderSocial(data.content);
+    renderFunnel(a.slug || id);
+  }
+
+  function renderPipeline(stage) {
+    const stages = ["DISCOVERED", "MATCH IDENTIFIED", "ANALYSIS READY", "CONTENT GENERATED", "ADMIN REVIEW", "APPROVED", "PUBLISHED"];
+    document.getElementById("pipeline").innerHTML =
+      stages.map(function (s) {
+        const on = s === stage;
+        return '<span class="s"><span class="dot ' + (on ? "on" : "off") + '"></span>' + s + "</span>";
+      }).join("") +
+      '<span class="spacer"></span>' +
+      '<button id="approve" class="ghost">Approve</button>' +
+      '<button id="publish">Publish to FootballHub</button>';
+    document.getElementById("approve").addEventListener("click", function () { transition("approve"); });
+    document.getElementById("publish").addEventListener("click", function () { transition("publish"); });
+  }
+
+  async function transition(action) {
+    // The pipeline is keyed by the discovered entity (youtube_video_id).
+    const entityId = (data.analysis && data.analysis.youtube_video_id) || id;
+    const r = await S.post(S.API.pipeline, {
+      entityId: entityId, action: action, approved: true, approvedBy: "admin",
+    });
+    if (r.ok || r.stage) {
+      S.get(slugParam ? S.API.analysisBySlug(slugParam) : S.API.analysis(id)).then(function (d) { data = d; render(); });
+      document.getElementById("notice").innerHTML =
+        '<div class="notice">Pipeline updated: ' + S.esc(r.stage && r.stage.stage ? r.stage.stage : action) + "</div>";
+    } else {
+      S.errorBox(document.getElementById("notice"), r.reason || r.error || "transition failed");
+    }
+  }
+
+  function renderSocial(content) {
+    const target = document.getElementById("social");
+    if (!content) { target.innerHTML = '<div class="small">Not generated yet.</div>'; return; }
+    const ig = content.reel || {};
+    const yt = content.short || {};
+    target.innerHTML =
+      '<div class="card"><b>Instagram Reel</b>' +
+      '<div class="small">Hook: ' + S.esc(ig.hook || DASH) + "</div>" +
+      '<div class="copy">' + S.esc(ig.script || DASH) + "</div>" +
+      '<div class="small">Caption: ' + S.esc(ig.caption || DASH) + "</div>" +
+      '<div class="small">Hashtags: ' + S.esc((ig.hashtags || []).join(" ")) + "</div>" +
+      '<div class="copy">' + S.esc(ig.cta || DASH) + "</div></div>" +
+      '<div class="card" style="margin-top:10px"><b>YouTube Short</b>' +
+      "<div><b>" + S.esc(yt.title || DASH) + "</b></div>" +
+      '<div class="small">Thumbnail: ' + S.esc(yt.thumbnail_text || DASH) + "</div>" +
+      '<div class="copy">' + S.esc(yt.description || DASH) + "</div>" +
+      '<div class="small">' + S.esc((yt.hashtags || []).join(" ")) + "</div></div>";
+  }
+
+  function renderFunnel(slug) {
+    const base = window.location.origin;
+    const ig = base + "/analysis/" + slug + "?utm_source=instagram&utm_medium=social&utm_campaign=match_analysis&utm_content=" + slug;
+    const yt = base + "/analysis/" + slug + "?utm_source=youtube&utm_medium=social&utm_campaign=match_analysis&utm_content=" + slug;
+    document.getElementById("funnel").innerHTML =
+      '<div class="small">Instagram</div><div class="copy">' + S.esc(ig) + "</div>" +
+      '<div class="small" style="margin-top:8px">YouTube</div><div class="copy">' + S.esc(yt) + "</div>";
+  }
+
+  document.getElementById("genContent").addEventListener("click", async function () {
+    const entityId = (data.analysis && data.analysis.id) || id;
+    document.getElementById("notice").innerHTML = '<div class="notice">Generating social content\u2026</div>';
+    const r = await S.post(S.API.contentGen, { analysisId: entityId });
+    if (r.ok) { data.content = r.content; renderSocial(r.content); document.getElementById("notice").innerHTML = ""; }
+    else S.errorBox(document.getElementById("notice"), r.reason || r.error || "generation failed");
+  });
+
+  load();
+})();
+</script>
+</body>
+</html>

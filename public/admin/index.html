@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analyst Studio — Dashboard</title>
+<link rel="stylesheet" href="/admin/studio.css">
+</head>
+<body>
+<main>
+  <h1>Newsroom Dashboard</h1>
+  <p class="sub">YouTube discovers what just happened. Analyst Studio explains it. FootballHub publishes it.</p>
+  <div id="status" class="statusline"></div>
+  <div id="kpis" class="kpi"></div>
+
+  <h2>Latest Football Videos</h2>
+  <div id="latest" class="grid cols-3"></div>
+
+  <h2>New Highlights <span id="hlcount" class="small"></span></h2>
+  <div id="highlights" class="grid cols-3"></div>
+
+  <div class="split" style="margin-top:20px">
+    <div>
+      <h2>Recent Matches</h2>
+      <div id="matches"></div>
+      <h2>Analyses in Progress</h2>
+      <div id="analyses"></div>
+      <h2>Content Ready</h2>
+      <div id="content"></div>
+    </div>
+    <div>
+      <h2>FootballHub Traffic</h2>
+      <div id="traffic" class="card"></div>
+      <h2>API Errors</h2>
+      <div id="errors"></div>
+    </div>
+  </div>
+</main>
+<script src="/admin/studio.js"></script>
+<script>
+(function () {
+  const S = window.Studio;
+  S.mount("dashboard");
+
+  const status = document.getElementById("status");
+  const kpis = document.getElementById("kpis");
+
+  function dot(on, label) {
+    return '<span class="s"><span class="dot ' + (on ? "on" : "off") + '"></span>' + label + "</span>";
+  }
+
+  async function load() {
+    try {
+      const d = await S.get(S.API.dashboard);
+
+      status.innerHTML =
+        dot(d.youtube_status.configured, "YouTube") +
+        dot(d.football_data_status.configured, "Football API (optional)") +
+        dot(d.ai_status.configured, "AI") +
+        dot(d.instagram_status.publish_enabled, "Instagram publish") +
+        dot(d.storage_status.configured, "Storage");
+
+      kpis.innerHTML = [
+        ["Videos discovered", d.counts.videos],
+        ["Matches", d.counts.matches],
+        ["Analyses", d.counts.analyses],
+        ["Content ready", (d.content_ready || []).length],
+        ["FootballHub views", d.footballhub_traffic.total],
+        ["Instagram visits", d.footballhub_traffic.instagram],
+        ["YouTube visits", d.footballhub_traffic.youtube],
+      ].map((k) => '<div class="k"><b>' + k[1] + "</b><span>" + k[0] + "</span></div>").join("");
+
+      renderVideos("latest", d.latest_videos);
+      renderVideos("highlights", d.new_highlights);
+      document.getElementById("hlcount").textContent = "(" + (d.new_highlights || []).length + ")";
+
+      document.getElementById("matches").innerHTML = table(
+        ["Match", "Competition", "Score", "Source", "Date"],
+        (d.recent_matches || []).map((m) => [
+          link("/admin/analysis/x?slug=" + encodeURIComponent(m.slug || ""), m.title || "—"),
+          m.competition || "—", m.score || "—",
+          S.sourceBadge(m.source), m.match_date || "—",
+        ])
+      );
+
+      document.getElementById("analyses").innerHTML = table(
+        ["Slug", "Match", "Source", "Updated"],
+        (d.analyses_in_progress || []).map((a) => [
+          link("/admin/analysis/" + a.id, a.slug || a.id),
+          a.match_id || "—", S.sourceBadge(a.source_indicator), S.fmtDate(a.updated_at),
+        ])
+      );
+
+      document.getElementById("content").innerHTML = table(
+        ["Slug", "Status", "Updated"],
+        (d.content_ready || []).map((c) => [
+          link("/admin/analysis/" + c.analysis_id, c.slug || c.id),
+          '<span class="badge warn">' + S.esc(c.status) + "</span>",
+          S.fmtDate(c.updated_at),
+        ])
+      );
+
+      const t = d.footballhub_traffic;
+      document.getElementById("traffic").innerHTML =
+        "<b>" + t.total + " tracked views</b>" +
+        '<div class="meta">Instagram: ' + t.instagram + " · YouTube: " + t.youtube + "</div>" +
+        '<div class="copy">' + S.esc(JSON.stringify(t.by_source, null, 2)) + "</div>";
+
+      document.getElementById("errors").innerHTML = (d.api_errors || []).length
+        ? table(["Scope", "Message", "When"], d.api_errors.map((e) => [e.scope, e.message, S.fmtDate(e.at)]))
+        : '<div class="small">No API errors recorded.</div>';
+    } catch (err) {
+      status.innerHTML = "";
+      S.errorBox(status, err.message);
+    }
+  }
+
+  function renderVideos(id, items) {
+    const target = document.getElementById(id);
+    target.innerHTML = "";
+    if (!items || !items.length) {
+      target.innerHTML = '<div class="small">No videos yet. Run a search on the Latest Football page.</div>';
+      return;
+    }
+    items.forEach((v) => target.appendChild(S.videoCard(v)));
+  }
+
+  function link(href, text) { return '<a href="' + href + '">' + S.esc(text) + "</a>"; }
+
+  function table(headers, rows) {
+    if (!rows.length) return '<div class="small">Nothing here yet.</div>';
+    return "<table><thead><tr>" + headers.map((h) => "<th>" + h + "</th>").join("") +
+      "</tr></thead><tbody>" +
+      rows.map((r) => "<tr>" + r.map((c) => "<td>" + c + "</td>").join("") + "</tr>").join("") +
+      "</tbody></table>";
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
