@@ -16,6 +16,16 @@
   publish = "public"
   functions = "netlify/functions"
 
+# This Netlify deployment IS the Analyst Studio: the root URL opens the
+# newsroom dashboard. The official public website lives on Vercel
+# (FOOTBALLHUB_BASE_URL). force=true is required because public/index.html
+# exists at "/" and would otherwise shadow this rule.
+[[redirects]]
+  from = "/"
+  to = "/admin"
+  status = 302
+  force = true
+
 # ---------------------------------------------------------------------------
 # Redirects / rewrites.
 # First matching rule wins, so exact rules MUST come before parameterised
