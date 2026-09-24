@@ -60,6 +60,7 @@
         dot(d.football_data_status.configured, "Football API (optional)") +
         dot(d.ai_status.configured, "AI") +
         dot(d.instagram_status.publish_enabled, "Instagram publish") +
+        dot(d.shared_store && d.shared_store.configured, "Shared store") +
         dot(d.storage_status.configured, "Storage");
 
       kpis.innerHTML = [
@@ -70,6 +71,8 @@
         ["FootballHub views", d.footballhub_traffic.total],
         ["Instagram visits", d.footballhub_traffic.instagram],
         ["YouTube visits", d.footballhub_traffic.youtube],
+        ["Facebook visits", d.footballhub_traffic.facebook || 0],
+        ["TikTok visits", d.footballhub_traffic.tiktok || 0],
       ].map((k) => '<div class="k"><b>' + k[1] + "</b><span>" + k[0] + "</span></div>").join("");
 
       renderVideos("latest", d.latest_videos);
@@ -105,7 +108,8 @@
       const t = d.footballhub_traffic;
       document.getElementById("traffic").innerHTML =
         "<b>" + t.total + " tracked views</b>" +
-        '<div class="meta">Instagram: ' + t.instagram + " · YouTube: " + t.youtube + "</div>" +
+        '<div class="meta">Instagram: ' + t.instagram + " · YouTube: " + t.youtube +
+        " · Facebook: " + (t.facebook || 0) + " · TikTok: " + (t.tiktok || 0) + "</div>" +
         '<div class="copy">' + S.esc(JSON.stringify(t.by_source, null, 2)) + "</div>";
 
       document.getElementById("errors").innerHTML = (d.api_errors || []).length

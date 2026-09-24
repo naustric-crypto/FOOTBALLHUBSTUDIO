@@ -10,6 +10,8 @@ module.exports = async (req, res) => {
   const q = req.query || {};
 
   try {
+    // Analyses are written by the studio (Netlify); hydrate before reading.
+    if (store.whenReady) await store.whenReady();
     let analysis;
     if (q.slug) {
       analysis = studio.getAnalysisBySlug(q.slug) || store.getAnalysis(q.slug);

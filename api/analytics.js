@@ -7,6 +7,9 @@ const analytics = require("../services/analytics");
 module.exports = async (req, res) => {
   const method = (req.method || "GET").toUpperCase();
   try {
+    // Shared store first: the funnel must include events recorded by the
+    // OTHER deployment (landing views happen on the official website).
+    if (store.whenReady) await store.whenReady();
     if (method === "GET") {
       return res.status(200).json({
         summary: analytics.summary(),

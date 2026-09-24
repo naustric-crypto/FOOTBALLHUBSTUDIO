@@ -165,6 +165,15 @@ exports.handler = async (event) => {
     originalUrl: event.rawUrl || event.path || route,
   };
 
+  // Warm the shared store once per instance (a no-op without Redis) so a
+  // cold start sees analyses published by the other deployment.
+  try {
+    const store = require("../../lib/store");
+    if (store.whenReady) await store.whenReady();
+  } catch {
+    /* store optional for routes that never touch it */
+  }
+
   const { res, state } = createResponse();
 
   try {

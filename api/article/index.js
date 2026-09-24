@@ -7,6 +7,8 @@ const studio = require("../../lib/studio");
 module.exports = async (req, res) => {
   const q = req.query || {};
   try {
+    // Load shared records written by the studio (other deployment) first.
+    if (store.whenReady) await store.whenReady();
     const slug = q.slug || q.id;
     if (!slug) return res.status(400).json({ error: "slug required" });
 

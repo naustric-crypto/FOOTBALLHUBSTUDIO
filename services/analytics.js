@@ -46,6 +46,8 @@ function funnel() {
     total: s.total,
     instagram: sumFor("instagram"),
     youtube: sumFor("youtube"),
+    facebook: sumFor("facebook"),
+    tiktok: sumFor("tiktok"),
     by_source: s.by_source,
   };
 }

@@ -9,7 +9,7 @@ const instagram = require("../services/instagram");
 const analytics = require("../services/analytics");
 const ai = require("../services/ai");
 const storage = require("../services/storage");
-const { youtube, footballData: fdConfig } = require("../lib/config");
+const { youtube, footballData: fdConfig, database } = require("../lib/config");
 
 module.exports = async (req, res) => {
   try {
@@ -37,6 +37,9 @@ module.exports = async (req, res) => {
         poll_channel_seconds: youtube.poll.channelSeconds,
       },
       football_data_status: { configured: fdConfig.enabled },
+      shared_store: {
+        configured: Boolean(database.redisRestUrl && database.redisRestToken),
+      },
       ai_status: { configured: ai.enabled() },
       storage_status: { configured: storage.enabled() },
       footballhub_traffic: analytics.funnel(),
