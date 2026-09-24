@@ -147,6 +147,17 @@
     if (!content) { target.innerHTML = '<div class="small">Not generated yet.</div>'; return; }
     const ig = content.reel || {};
     const yt = content.short || {};
+    const fb = content.facebook || {};
+    const tt = content.tiktok || {};
+    function card(label, obj, extra) {
+      return '<div class="card" style="margin-top:10px"><b>' + label + "</b>" +
+        '<div class="small">Hook: ' + S.esc(obj.hook || obj.title || DASH) + "</div>" +
+        '<div class="copy">' + S.esc(obj.script || obj.description || DASH) + "</div>" +
+        (extra || "") +
+        '<div class="small">Caption: ' + S.esc(obj.caption || obj.description || DASH) + "</div>" +
+        '<div class="small">Hashtags: ' + S.esc((obj.hashtags || []).join(" ")) + "</div>" +
+        '<div class="copy">' + S.esc(obj.cta || obj.url || DASH) + "</div></div>";
+    }
     target.innerHTML =
       '<div class="card"><b>Instagram Reel</b>' +
       '<div class="small">Hook: ' + S.esc(ig.hook || DASH) + "</div>" +
@@ -158,16 +169,26 @@
       "<div><b>" + S.esc(yt.title || DASH) + "</b></div>" +
       '<div class="small">Thumbnail: ' + S.esc(yt.thumbnail_text || DASH) + "</div>" +
       '<div class="copy">' + S.esc(yt.description || DASH) + "</div>" +
-      '<div class="small">' + S.esc((yt.hashtags || []).join(" ")) + "</div></div>";
+      '<div class="small">' + S.esc((yt.hashtags || []).join(" ")) + "</div></div>" +
+      card("Facebook Reel", fb) +
+      card("TikTok", tt, tt.text_overlay && tt.text_overlay.length
+        ? '<div class="small">On-screen: ' + S.esc(tt.text_overlay.join(" \u00b7 ")) + "</div>"
+        : "");
   }
 
   function renderFunnel(slug) {
-    const base = window.location.origin;
-    const ig = base + "/analysis/" + slug + "?utm_source=instagram&utm_medium=social&utm_campaign=match_analysis&utm_content=" + slug;
-    const yt = base + "/analysis/" + slug + "?utm_source=youtube&utm_medium=social&utm_campaign=match_analysis&utm_content=" + slug;
-    document.getElementById("funnel").innerHTML =
-      '<div class="small">Instagram</div><div class="copy">' + S.esc(ig) + "</div>" +
-      '<div class="small" style="margin-top:8px">YouTube</div><div class="copy">' + S.esc(yt) + "</div>";
+    // Always point at the OFFICIAL website (FOOTBALLHUB_BASE_URL reported by
+    // the API), never the studio origin — this page runs on Netlify but
+    // viewers must land on Vercel.
+    const base = (data && data.funnel_base) || window.location.origin;
+    const sources = ["instagram", "youtube", "facebook", "tiktok"];
+    document.getElementById("funnel").innerHTML = sources.map(function (src, i) {
+      const url = base + "/analysis/" + slug + "?utm_source=" + src +
+        "&utm_medium=social&utm_campaign=match_analysis&utm_content=" + slug;
+      const label = src.charAt(0).toUpperCase() + src.slice(1);
+      return '<div class="small"' + (i ? ' style="margin-top:8px"' : "") + ">" + label +
+        '</div><div class="copy">' + S.esc(url) + "</div>";
+    }).join("");
   }
 
   document.getElementById("genContent").addEventListener("click", async function () {

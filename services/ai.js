@@ -253,9 +253,13 @@ Return JSON:
 {"reel":{"hook":string,"script":string,"narration":string,"on_screen_text":[string],
 "caption":string,"hashtags":[string],"cta":string},
 "short":{"title":string,"description":string,"script":string,"thumbnail_text":string,
-"hashtags":[string],"url":string}}
+"hashtags":[string],"url":string},
+"facebook":{"hook":string,"script":string,"caption":string,"hashtags":[string],"cta":string},
+"tiktok":{"hook":string,"script":string,"caption":string,"text_overlay":[string],
+"hashtags":[string],"cta":string}}
 
-CTA must include this URL: ${utmUrls.instagram}
+Each CTA must include its platform URL — instagram: ${utmUrls.instagram},
+facebook: ${utmUrls.facebook}, tiktok: ${utmUrls.tiktok}, short url: ${utmUrls.youtube}.
 MATCH: ${JSON.stringify(match)}
 SUMMARY: ${report?.summary || ""}
 SLUG: ${slug}`;
@@ -306,6 +310,23 @@ function fallbackSocial({ match, slug, utmUrls }) {
       thumbnail_text: title,
       hashtags,
       url: utmUrls.youtube,
+    },
+    facebook: {
+      hook: `${title}${score} — the moment that changed everything.`,
+      script:
+        "Open on the decisive moment. Add context. Explain the shift. End by pointing to the full breakdown.",
+      caption: `${title}${score} — tactical breakdown. Full analysis on FootballHub.`,
+      hashtags,
+      cta: `Watch the full breakdown on FootballHub: ${utmUrls.facebook || utmUrls.instagram}`,
+    },
+    tiktok: {
+      hook: `${title}${score} — what the highlights don't show.`,
+      script:
+        "Hook in the first second. Show the turning point. One line of analysis. Point to the full breakdown.",
+      caption: `${title}${score} — full breakdown on FootballHub.`,
+      text_overlay: [title, "Key moment", "Full breakdown"],
+      hashtags,
+      cta: `Full analysis on FootballHub: ${utmUrls.tiktok || utmUrls.instagram}`,
     },
   };
 }

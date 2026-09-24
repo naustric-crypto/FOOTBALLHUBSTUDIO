@@ -147,7 +147,13 @@ Every generated item carries a UTM-tagged FootballHub URL:
 ```
 ?utm_source=instagram&utm_medium=social&utm_campaign=match_analysis&utm_content=[slug]
 ?utm_source=youtube&utm_medium=social&utm_campaign=match_analysis&utm_content=[slug]
+?utm_source=facebook&utm_medium=social&utm_campaign=match_analysis&utm_content=[slug]
+?utm_source=tiktok&utm_medium=social&utm_campaign=match_analysis&utm_content=[slug]
 ```
+
+Packages are generated for all four platforms (Instagram Reel, YouTube
+Short, Facebook Reel, TikTok). Instagram has a Graph API adapter; the other
+three are copy-paste-ready packages the administrator posts manually.
 
 `/analysis/:slug` records `landing_page_view` with `source`, `medium`,
 `campaign`, `content` and `match_id`, and the dashboard shows the resulting

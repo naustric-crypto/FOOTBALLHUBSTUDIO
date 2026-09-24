@@ -3,6 +3,7 @@
 // Also returns the pipeline record so the UI can render the stage.
 const store = require("../../lib/store");
 const studio = require("../../lib/studio");
+const { FOOTBALLHUB_BASE_URL } = require("../../lib/config");
 
 module.exports = async (req, res) => {
   const { id } = req.query;
@@ -23,7 +24,7 @@ module.exports = async (req, res) => {
     // Pipeline is keyed by youtube_video_id (the discovered entity).
     const pipeline = store.getPipeline(analysis.youtube_video_id);
 
-    res.status(200).json({ analysis, match, content, pipeline });
+    res.status(200).json({ analysis, match, content, pipeline, funnel_base: FOOTBALLHUB_BASE_URL });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }
