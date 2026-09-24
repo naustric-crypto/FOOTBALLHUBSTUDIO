@@ -24,7 +24,17 @@ module.exports = async (req, res) => {
     const r = await fetch(`https://newsapi.org/v2/everything?${params.toString()}`);
     if (!r.ok) throw new Error(`NewsAPI failed: ${r.status}`);
     const json = await r.json();
-    const articles = json.articles || [];
+    // Keep only the fields the homepage renders — NewsAPI also returns
+    // author/content fields we never display, which just make every
+    // response (and the cache entry) heavier.
+    const articles = (json.articles || []).map((a) => ({
+      title: a.title,
+      url: a.url,
+      description: a.description,
+      urlToImage: a.urlToImage,
+      publishedAt: a.publishedAt,
+      source: a.source ? { name: a.source.name } : null,
+    }));
     setCached("news", articles, HOUR);
     res.status(200).json({ response: articles });
   } catch (err) {

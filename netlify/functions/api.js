@@ -134,7 +134,10 @@ function createResponse() {
 function jsonResult(statusCode, payload) {
   return {
     statusCode,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
     body: JSON.stringify(payload),
     isBase64Encoded: false,
   };
@@ -176,6 +179,17 @@ exports.handler = async (event) => {
         error: (err && err.message) || "Internal Server Error",
       });
     }
+  }
+
+  // Browser-side caching: successful GETs are safe to reuse briefly (the
+  // handlers already hold upstream data in their own 15-60 min server
+  // cache), so repeat page views hit the browser cache with zero network.
+  // Any other GET response must never be reused.
+  if (req.method === "GET" && !state.headers["cache-control"]) {
+    state.headers["cache-control"] =
+      state.statusCode === 200
+        ? "public, max-age=60, stale-while-revalidate=300"
+        : "no-store";
   }
 
   return {

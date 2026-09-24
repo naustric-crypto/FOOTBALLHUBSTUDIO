@@ -15,11 +15,22 @@ module.exports = async (req, res) => {
     // ourselves by match date/time, most recent first.
     const sorted = [...list].sort((a, b) => new Date(b.date) - new Date(a.date));
 
+    // Keep only the fields the homepage renders (title / embed / link /
+    // competition / date) and cap the list: the raw feed repeats video and
+    // thumbnail payloads we never display, which bloats every response.
+    const trimmed = sorted.slice(0, 30).map((item) => ({
+      title: item.title,
+      embed: item.embed,
+      matchviewUrl: item.matchviewUrl,
+      date: item.date,
+      competition: item.competition ? { name: item.competition.name } : null,
+    }));
+
     // Shorter cache than the API-Football routes: this feed is free and
     // needs no key, so there's no quota reason to hold it longer, and
     // shorter caching means new highlights show up sooner.
-    setCached("highlights", sorted, 15 * MINUTE);
-    res.status(200).json({ response: sorted });
+    setCached("highlights", trimmed, 15 * MINUTE);
+    res.status(200).json({ response: trimmed });
   } catch (err) {
     res.status(502).json({ error: err.message });
   }

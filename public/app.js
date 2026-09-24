@@ -335,7 +335,7 @@ async function loadNews() {
     leadEl.target = "_blank";
     leadEl.rel = "noopener";
     const leadImg = lead.urlToImage
-      ? `<img src="${lead.urlToImage}" alt="" onerror="this.style.display='none'"/>`
+      ? `<img src="${lead.urlToImage}" alt="" decoding="async" onerror="this.style.display='none'"/>`
       : "";
     leadEl.innerHTML = `
       ${leadImg}
@@ -385,7 +385,13 @@ async function loadHighlights() {
     items.slice(0, 24).forEach((item) => {
       const card = document.createElement("div");
       card.className = "highlight-card";
-      const embed = item.embed || `<a href="${item.matchviewUrl}" target="_blank">Watch</a>`;
+      let embed = item.embed || `<a href="${item.matchviewUrl}" target="_blank">Watch</a>`;
+      // Scorebat embeds are heavy third-party players. Without this, all 24
+      // iframes start loading at once and the page crawls — only load the
+      // ones that actually scroll into view.
+      if (embed.indexOf("<iframe") !== -1 && embed.indexOf("loading=") === -1) {
+        embed = embed.replace("<iframe", '<iframe loading="lazy" decoding="async"');
+      }
       card.innerHTML = `
         <div class="embed">${embed}</div>
         <div class="meta">
