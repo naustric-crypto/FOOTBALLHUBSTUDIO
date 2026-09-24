@@ -1,0 +1,77 @@
+# netlify.toml
+#
+# This project was originally built for Vercel (see vercel.json), which
+# Netlify ignores completely. Everything Vercel was doing for us is
+# restated here in Netlify's format:
+#
+#   1. publish directory  -> public/  (otherwise Netlify serves the repo
+#                             root and every static asset 404s)
+#   2. vercel.json rewrites -> [[redirects]] rules below
+#   3. /api/*.js functions  -> netlify/functions/api.js dispatcher
+#      (Netlify only deploys functions from netlify/functions/, so
+#       /api/* is rewritten to the single `api` function, which loads
+#       the matching Vercel-style handler and adapts req/res.)
+
+[build]
+  publish = "public"
+  functions = "netlify/functions"
+
+# ---------------------------------------------------------------------------
+# Redirects / rewrites.
+# First matching rule wins, so exact rules MUST come before parameterised
+# ones (e.g. /admin/analysis/new before /admin/analysis/:id).
+# A status of 200 means "rewrite internally, don't redirect the browser".
+# ---------------------------------------------------------------------------
+
+# --- Pretty URLs for the admin studio (mirrors vercel.json "rewrites") ---
+[[redirects]]
+  from = "/admin/youtube/videos/:id"
+  to = "/admin/video.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/youtube/search"
+  to = "/admin/youtube/search.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/youtube"
+  to = "/admin/youtube/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/analysis/new"
+  to = "/admin/analysis/new.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin/analysis/:id"
+  to = "/admin/analysis/detail.html"
+  status = 200
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin/index.html"
+  status = 200
+
+# --- Public article pages: /analysis/my-slug -> article.html ---
+[[redirects]]
+  from = "/analysis/:slug"
+  to = "/article.html"
+  status = 200
+
+# --- All API traffic goes through the adapter function ---
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# ---------------------------------------------------------------------------
+# Security headers (mirrors vercel.json "headers").
+# ---------------------------------------------------------------------------
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "SAMEORIGIN"
